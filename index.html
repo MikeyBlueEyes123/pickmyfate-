@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PickMyFate</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
+
+    :root {
+      --gold: #c9a84c;
+      --gold-light: #e8cc7a;
+      --gold-dim: #6b5420;
+      --ink: #0a0806;
+      --parchment: #f5ede0;
+      --smoke: #1a1410;
+      --ember: #ff6b1a;
+      --ember-dim: #7a3008;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Crimson Pro', serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Particle canvas */
+    #canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Radial vignette */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, #000 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .shrine {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 560px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    /* Ornamental top line */
+    .ornament {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.2s both;
+    }
+    .ornament-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
+    }
+    .ornament-diamond {
+      width: 8px; height: 8px;
+      background: var(--gold);
+      transform: rotate(45deg);
+      box-shadow: 0 0 8px var(--gold);
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: clamp(2.8rem, 8vw, 4.2rem);
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      text-shadow:
+        0 0 30px rgba(201,168,76,0.5),
+        0 0 80px rgba(201,168,76,0.2);
+      line-height: 1;
+      margin-bottom: 6px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.4s both;
+    }
+
+    .subtitle {
+      font-family: 'Crimson Pro', serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: 0.95rem;
+      color: var(--gold-dim);
+      letter-spacing: 0.25em;
+      margin-bottom: 36px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.6s both;
+    }
+
+    /* Input area */
+    .scroll-vessel {
+      position: relative;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.8s both;
+    }
+
+    .scroll-vessel::before,
+    .scroll-vessel::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
+    }
+    .scroll-vessel::before { top: 0; }
+    .scroll-vessel::after  { bottom: 0; }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      background: rgba(201,168,76,0.04);
+      border: none;
+      border-left: 1px solid var(--gold-dim);
+      border-right: 1px solid var(--gold-dim);
+      color: var(--parchment);
+      font-family: 'Crimson Pro', serif;
+      font-size: 1.1rem;
+      font-weight: 300;
+      line-height: 1.9;
+      padding: 18px 22px;
+      resize: none;
+      outline: none;
+      letter-spacing: 0.02em;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    textarea::placeholder {
+      color: var(--gold-dim);
+      font-style: italic;
+    }
+    textarea:focus {
+      background: rgba(201,168,76,0.07);
+      border-color: var(--gold-dim);
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--gold-dim);
+      letter-spacing: 0.15em;
+      margin-top: 8px;
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.9s both;
+    }
+
+    /* The Oracle button */
+    .invoke-btn {
+      position: relative;
+      width: 100%;
+      padding: 18px 32px;
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.4s;
+      opacity: 0;
+      animation: fadeUp 1s ease 1s both;
+    }
+
+    .invoke-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gold);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: -1;
+    }
+    .invoke-btn:hover::before { transform: scaleX(1); }
+    .invoke-btn:hover { color: var(--ink); box-shadow: 0 0 30px rgba(201,168,76,0.3); }
+    .invoke-btn:active { transform: scale(0.98); }
+    .invoke-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      border-color: var(--gold-dim);
+      color: var(--gold-dim);
+    }
+    .invoke-btn:disabled::before { transform: scaleX(0) !important; }
+
+    /* Corner accents on button */
+    .invoke-btn .corner {
+      position: absolute;
+      width: 8px; height: 8px;
+      border-color: var(--gold);
+      border-style: solid;
+    }
+    .invoke-btn .corner.tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+    .invoke-btn .corner.tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+    .invoke-btn .corner.bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+    .invoke-btn .corner.br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+    /* Revelation panel */
+    #revelation {
+      margin-top: 28px;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.6s;
+    }
+    #revelation.visible { display: block; opacity: 1; }
+
+    .revelation-frame {
+      position: relative;
+      padding: 28px 32px;
+      background: rgba(201,168,76,0.04);
+      border: 1px solid var(--gold-dim);
+    }
+    .revelation-frame::before {
+      content: attr(data-label);
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.3em;
+      padding: 0 14px;
+      white-space: nowrap;
+    }
+
+    #chosen-text {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 400;
+      color: var(--gold-light);
+      text-shadow: 0 0 40px rgba(232,204,122,0.4);
+      letter-spacing: 0.1em;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.3;
+    }
+
+    #chosen-text.shuffling {
+      color: var(--ember);
+      text-shadow: 0 0 20px rgba(255,107,26,0.5);
+      animation: flicker 0.07s infinite;
+    }
+
+    .verdict-ornament {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 18px;
+      justify-content: center;
+    }
+    .verdict-line {
+      width: 60px; height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold-dim));
+    }
+    .verdict-line.r { background: linear-gradient(to left, transparent, var(--gold-dim)); }
+    #verdict-text {
+      font-style: italic;
+      font-size: 0.85rem;
+      color: var(--gold-dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* Count display */
+    .count-ring {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .count-pip {
+      width: 6px; height: 6px;
+      border: 1px solid var(--gold-dim);
+      transform: rotate(45deg);
+      transition: all 0.3s;
+    }
+    .count-pip.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      box-shadow: 0 0 6px var(--gold);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes flicker {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.7; }
+    }
+    @keyframes revealFade {
+      from { opacity: 0; transform: scale(0.97); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .reveal-anim { animation: revealFade 0.5s ease both; }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div class="shrine">
+  <div class="ornament">
+    <div class="ornament-line"></div>
+    <div class="ornament-diamond"></div>
+    <div class="ornament-line"></div>
+  </div>
+
+  <h1>PICKMYFATE</h1>
+  <p class="subtitle">present your dilemma · receive your fate</p>
+
+  <div class="scroll-vessel">
+    <textarea id="options-input" placeholder="Write each option on its own line...&#10;&#10;Take the new job&#10;Stay where I am&#10;Ask for more time"></textarea>
+  </div>
+
+  <p class="hint">ONE OPTION PER LINE · THE ORACLE WILL CHOOSE</p>
+
+  <div style="margin-bottom:16px;opacity:0;animation:fadeUp 1s ease 0.95s both;text-align:center;">
+    <button id="bo3-toggle" onclick="toggleBO3()" style="background:transparent;border:1px solid var(--gold-dim);color:var(--gold-dim);font-family:'Cinzel',serif;font-size:0.65rem;letter-spacing:0.25em;padding:8px 20px;cursor:pointer;transition:all 0.3s;">BEST OF 3: OFF</button>
+  </div>
+
+  <button class="invoke-btn" id="invoke-btn" onclick="consult()">
+    <span class="corner tl"></span>
+    <span class="corner tr"></span>
+    <span class="corner bl"></span>
+    <span class="corner br"></span>
+    CONSULT THE ORACLE
+  </button>
+
+  <div id="revelation">
+    <div class="revelation-frame" data-label="THE ORACLE SPEAKS">
+      <div id="chosen-text">—</div>
+      <div class="verdict-ornament">
+        <div class="verdict-line"></div>
+        <div id="verdict-text">fate revealed</div>
+        <div class="verdict-line r"></div>
+      </div>
+    </div>
+    <div class="count-ring" id="count-ring"></div>
+  </div>
+</div>
+
+<script>
+  // ── Particle system ─────────────────────────────────────
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() { this.reset(true); }
+    reset(init = false) {
+      this.x = Math.random() * W;
+      this.y = init ? Math.random() * H : H + 10;
+      this.size  = Math.random() * 1.5 + 0.3;
+      this.speedY = Math.random() * 0.4 + 0.1;
+      this.speedX = (Math.random() - 0.5) * 0.2;
+      this.opacity = Math.random() * 0.5 + 0.1;
+      this.gold = Math.random() > 0.6;
+    }
+    update() {
+      this.y -= this.speedY;
+      this.x += this.speedX;
+      if (this.y < -10) this.reset();
+    }
+    draw() {
+      ctx.globalAlpha = this.opacity;
+      ctx.fillStyle = this.gold ? '#c9a84c' : '#f5ede0';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < 120; i++) particles.push(new Particle());
+
+  function animParticles() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+    particles.forEach(p => { p.update(); p.draw(); });
+    requestAnimationFrame(animParticles);
+  }
+  animParticles();
+
+  // ── Oracle logic ─────────────────────────────────────────
+  const VERDICTS = [
+    "the path is clear",
+    "thus it shall be",
+    "the stars align",
+    "doubt no further",
+    "embrace this truth",
+    "the die is cast",
+    "so it is written",
+    "fate does not waver",
+    "let this be done",
+    "the oracle has spoken"
+  ];
+
+  let shuffleInterval = null;
+  let bo3Mode = false;
+  let lastWinner = null;
+  let durationDeck = [];
+
+  function toggleBO3() {
+    bo3Mode = !bo3Mode;
+    const btn = document.getElementById('bo3-toggle');
+    btn.textContent = bo3Mode ? 'BEST OF 3: ON' : 'BEST OF 3: OFF';
+    btn.style.color = bo3Mode ? 'var(--gold)' : 'var(--gold-dim)';
+    btn.style.borderColor = bo3Mode ? 'var(--gold)' : 'var(--gold-dim)';
+  }
+
+  function pickWinner(options) {
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  function consult() {
+    if (bo3Mode) { consultBO3(); return; }
+    const raw = document.getElementById('options-input').value;
+    const options = raw.split('\n').map(s => s.trim()).filter(s => s !== '');
+
+    if (options.length < 2) {
+      shake();
+      return;
+    }
+
+    const btn       = document.getElementById('invoke-btn');
+    const revelation = document.getElementById('revelation');
+    const chosenEl  = document.getElementById('chosen-text');
+    const verdictEl = document.getElementById('verdict-text');
+    const ring      = document.getElementById('count-ring');
+
+    btn.disabled = true;
+
+    // Build pip ring
+    ring.innerHTML = '';
+    options.forEach((_, i) => {
+      const pip = document.createElement('div');
+      pip.className = 'count-pip';
+      pip.id = `pip-${i}`;
+      ring.appendChild(pip);
+    });
+
+    // Show panel
+    revelation.style.display = 'block';
+    revelation.classList.remove('visible');
+    chosenEl.classList.add('shuffling');
+    chosenEl.classList.remove('reveal-anim');
+    verdictEl.textContent = 'the oracle deliberates...';
+
+    setTimeout(() => { revelation.classList.add('visible'); }, 10);
+
+    // Shuffle phase
+    let tick = 0;
+    let lastIdx = -1;
+    clearInterval(shuffleInterval);
+    shuffleInterval = setInterval(() => {
+      let idx;
+      do { idx = Math.floor(Math.random() * options.length); } while (idx === lastIdx && options.length > 1);
+      lastIdx = idx;
+      chosenEl.textContent = options[idx];
+
+      // light pips
+      document.querySelectorAll('.count-pip').forEach(p => p.classList.remove('active'));
+      document.getElementById(`pip-${idx}`)?.classList.add('active');
+      tick++;
+    }, 70);
+
+    // Reveal phase — cycles through 4s, 6s, 8s in random order
+    if (durationDeck.length === 0) {
+      durationDeck = [4000, 6000, 8000];
+      for (let i = durationDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [durationDeck[i], durationDeck[j]] = [durationDeck[j], durationDeck[i]];
+      }
+    }
+    const duration = durationDeck.pop();
+
+    setTimeout(() => {
+      clearInterval(shuffleInterval);
+
+      const pool = options.length > 1 ? options.filter(o => o !== lastWinner) : options;
+      const winner = pool[Math.floor(Math.random() * pool.length)];
+      lastWinner = winner;
+      const verdict = VERDICTS[Math.floor(Math.random() * VERDICTS.length)];
+
+      chosenEl.classList.remove('shuffling');
+      chosenEl.classList.add('reveal-anim');
+      chosenEl.textContent = winner;
+      verdictEl.textContent = verdict;
+
+      // Highlight winning pip permanently
+      const winIdx = options.indexOf(winner);
+      document.querySelectorAll('.count-pip').forEach(p => p.classList.remove('active'));
+      document.getElementById(`pip-${winIdx}`)?.classList.add('active');
+
+      btn.disabled = false;
+      btn.textContent = '';
+      btn.innerHTML = `
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        ASK AGAIN`;
+
+    }, duration);
+  }
+
+  // ── Best of 3 logic ─────────────────────────────────────
+  function consultBO3() {
+    const raw = document.getElementById('options-input').value;
+    const options = raw.split('\n').map(s => s.trim()).filter(s => s !== '');
+    if (options.length < 2) { shake(); return; }
+
+    const btn       = document.getElementById('invoke-btn');
+    const revelation = document.getElementById('revelation');
+    const chosenEl  = document.getElementById('chosen-text');
+    const verdictEl = document.getElementById('verdict-text');
+    const ring      = document.getElementById('count-ring');
+
+    btn.disabled = true;
+    ring.innerHTML = '';
+    options.forEach((_, i) => {
+      const pip = document.createElement('div');
+      pip.className = 'count-pip';
+      pip.id = 'pip-' + i;
+      ring.appendChild(pip);
+    });
+
+    revelation.style.display = 'block';
+    revelation.classList.remove('visible');
+    chosenEl.classList.remove('reveal-anim');
+    setTimeout(() => { revelation.classList.add('visible'); }, 10);
+
+    const totalRounds = [5, 7, 9][Math.floor(Math.random() * 3)];
+    const tallies = {};
+    options.forEach(o => tallies[o] = 0);
+    let round = 0;
+    let lastRoundWinner = null;
+
+    function runRound() {
+      round++;
+      chosenEl.classList.add('shuffling');
+      verdictEl.textContent = 'round ' + round + ' of 3 — the oracle deliberates...';
+      chosenEl.textContent = '...';
+
+      clearInterval(shuffleInterval);
+      let lastIdx = -1;
+      shuffleInterval = setInterval(() => {
+        let idx;
+        do { idx = Math.floor(Math.random() * options.length); } while (idx === lastIdx && options.length > 1);
+        lastIdx = idx;
+        chosenEl.textContent = options[idx];
+        document.querySelectorAll('.count-pip').forEach(p => p.classList.remove('active'));
+        document.getElementById('pip-' + idx)?.classList.add('active');
+      }, 70);
+
+      if (durationDeck.length === 0) {
+        durationDeck = [4000, 6000, 8000];
+        for (let i = durationDeck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [durationDeck[i], durationDeck[j]] = [durationDeck[j], durationDeck[i]];
+        }
+      }
+      const duration = durationDeck.pop();
+      setTimeout(() => {
+        clearInterval(shuffleInterval);
+        let roundWinner;
+        do { roundWinner = options[Math.floor(Math.random() * options.length)]; } while (round > 1 && roundWinner === lastRoundWinner && options.length > 1);
+        lastRoundWinner = roundWinner;
+        tallies[roundWinner]++;
+        chosenEl.classList.remove('shuffling');
+        chosenEl.classList.add('reveal-anim');
+        chosenEl.textContent = roundWinner;
+        verdictEl.textContent = 'round ' + round + ': ' + roundWinner + ' (' + tallies[roundWinner] + ' win' + (tallies[roundWinner] > 1 ? 's' : '') + ')';
+
+        const winIdx = options.indexOf(roundWinner);
+        document.querySelectorAll('.count-pip').forEach(p => p.classList.remove('active'));
+        document.getElementById('pip-' + winIdx)?.classList.add('active');
+
+        if (round < 3) {
+          setTimeout(runRound, 2500);
+        } else {
+          // Find overall winner
+          const finalWinner = Object.keys(tallies).reduce((a, b) => tallies[a] >= tallies[b] ? a : b);
+          const verdict = VERDICTS[Math.floor(Math.random() * VERDICTS.length)];
+          setTimeout(() => {
+            chosenEl.classList.add('reveal-anim');
+            chosenEl.textContent = finalWinner;
+            verdictEl.textContent = 'best of 3: ' + finalWinner + ' wins · ' + verdict;
+            const fIdx = options.indexOf(finalWinner);
+            document.querySelectorAll('.count-pip').forEach(p => p.classList.remove('active'));
+            document.getElementById('pip-' + fIdx)?.classList.add('active');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>ASK AGAIN';
+          }, 800);
+        }
+      }, duration);
+    }
+
+    runRound();
+  }
+
+  // Shake animation for empty input
+  function shake() {
+    const ta = document.getElementById('options-input');
+    ta.style.transition = 'none';
+    let s = 0;
+    const dir = [6,-6,5,-5,4,-4,3,-3,2,-2,0];
+    const interval = setInterval(() => {
+      ta.style.transform = `translateX(${dir[s]}px)`;
+      s++;
+      if (s >= dir.length) {
+        clearInterval(interval);
+        ta.style.transform = '';
+        ta.focus();
+      }
+    }, 40);
+  }
+
+  // Enter key in textarea
+  document.getElementById('options-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); consult(); }
+  });
+</script>
+</body>
+</html>
